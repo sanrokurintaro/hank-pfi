@@ -1,0 +1,28 @@
+[project]
+name = "hank-pfi"
+version = "0.1.0"
+description = "HANK models with occasionally-binding constraints (ZLB), solved via Policy Function Iteration on a discretized state space."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "numpy",
+    "scipy",
+    "numba",
+    "quantecon",
+    "matplotlib",
+]
+
+[tool.poetry]
+packages = [{ include = "hank_pfi", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core>=2.2.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
