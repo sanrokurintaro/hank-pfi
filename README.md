@@ -3,19 +3,19 @@
 ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HANK モデルを、
 **Policy Function Iteration(Howard改善)+ 大域グリッド**で解くためのパッケージ。
 
-設計方針は「案B: QuantEcon `DiscreteDP` 中核型」。家計の動的計画問題は自前でVFI/PFIループを
-書かず、QuantEcon.py の `DiscreteDP.solve(method='policy_iteration')`(= Howard改善そのもの)に
-委譲し、ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
+QuantEcon `DiscreteDP` を中核にし、VFI/PFIループを
+、QuantEcon.py の `DiscreteDP.solve(method='policy_iteration')`(= Howard改善そのもの)に
+委譲。
+ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
 「regime-switching guess-and-verify」で解く。
 
 ## ブランチ(`egm-household`)について(merge済み)
 
-`master`ブランチでは、家計ブロックのSequence-Space Jacobianを**補間なしの離散選択PFI**
-(`household.py`、DiscreteDP)から計算しており、微小な価格変化では消費が反応しない「階段関数」
-問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した。
+もともとの'DistrectDP'は外生離散グリッド。
+微小な価格変化では消費が反応しない「階段関数」問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した。
 
-このブランチでは、**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと
-置き換えた版を実装し、同じ問題が解消するかを検証した。結論:**解消した**。
+このブランチ(merge済み)では、**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと置き換えた版を実装し、同じ問題が解消するかを検証した。
+結論:**解消した**。
 
 | | `master`(DiscreteDP) | `egm-household`(EGM) |
 |---|---|---|
@@ -148,7 +148,7 @@ HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処
    HANK文献でよく議論される論点と、離散グリッドJacobianの実務上の脆さの両方を具体的な数値で
    確認できた、という意味で有益な副産物ではある。
 
-## 次回以降の拡張
+## 拡張するとしたら？
 1. **Fake News Algorithmへの置き換え**(効率化)
    現状の`jacobian.py`はT×T行列を「1期ずつ価格を揺らして毎回MIT shockを解き直す」brute-force法
    (2T回の有限ホライズン解)で計算している。Auclert et al. (2021)のfake news algorithmに
