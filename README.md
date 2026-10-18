@@ -8,6 +8,67 @@ ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HA
 委譲し、ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
 「regime-switching guess-and-verify」で解く。
 
+## このブランチ(`egm-household`)について
+
+`master`ブランチでは、家計ブロックのSequence-Space Jacobianを**補間なしの離散選択PFI**
+(`household.py`、DiscreteDP)から計算しており、微小な価格変化では消費が反応しない「階段関数」
+問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した(`master`のREADME
+「このマイルストーンで分かったこと」参照)。
+
+このブランチでは、**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと
+置き換えた版を実装し、同じ問題が解消するかを検証した。結論:**解消した**。
+
+| | `master`(DiscreteDP) | `egm-household`(EGM) |
+|---|---|---|
+| 家計ソルバー | `household.py`(離散選択PFI) | `household_egm.py`(EGM time iteration) |
+| 分布計算 | `distribution.py`(厳密な離散遷移) | `distribution_egm.py`(lottery法、Young 2010) |
+| MIT shock遷移 | `transition.py` | `transition_egm.py` |
+| Jacobian | `jacobian.py` | `jacobian_egm.py` |
+| Jacobian計算に必要な摂動幅 | `dr=0.02, dlogw=0.1`(大きくしないと符号が壊れる) | `dr=dlogw=1e-4`(教科書通りの微小摂動で十分) |
+| ノーショック経路のレベルバイアス | n_a=150で2〜4% | 数値誤差程度(事実上ゼロ) |
+
+新しいファイルは`household_egm.py` / `distribution_egm.py` / `steady_state_egm.py` /
+`transition_egm.py` / `jacobian_egm.py`。`hank_zlb.py`には`build_hank_jacobian_egm`を追加し、
+ZLBの行列ソルバー自体(`solve_hank_transition_path`)は変更していない(家計ブロックがどちらで
+作られたJacobianかを一切問わない、純粋な線形代数なので)。
+
+### 実装中に踏んだバグ(これも記録として残す)
+
+1. **借入制約点のスプライス位置バグ**: 制約が実際には効かない(高所得で、a=0でも無制約解が
+   成立する)状態に対しても、`(a_min, c=coh(a_min)-a_min)`という人工的な点を内挿配列に
+   機械的に追加していたため、本来なめらかなオイラー方程式の解の途中に不整合な値が挟まり、
+   `a=0`付近の消費が全状態で`0`に潰れるというバグを生んだ。修正: 制約が効くかどうかを
+   `a_endog`の最小値と比較して判定し、効く場合のみ直接公式`c=coh(a)-a_min`を使う。
+2. **オイラー方程式の割引率タイミングバグ**: 時間変化する価格経路のMIT shockで、
+   「t期の予算制約で使う金利(今日保有する資産の収益率)」と「オイラー方程式の割引に使う金利
+   (今日からt+1への貯蓄の収益率)」を同じ`r_path[t]`で済ませてしまい、Jacobianの対角成分
+   (所得効果、符号は正のはず)と1つ上の対角成分(代替効果、符号は負のはず)が同じ符号・
+   大きさになってしまった。定常問題(`solve_household_egm`)では両者が一致するため
+   表面化せず、時間変化する`transition_egm.py`を作って初めて発覚した。
+
+### このブランチの実行例
+
+```bash
+poetry run pytest tests/test_egm.py -v
+poetry run python examples/run_hank_zlb_transition_egm.py
+```
+
+![EGM vs DiscreteDP](examples/hank_egm_vs_discretedp.png)
+
+同じショック(自然利子率に-0.02、持続期間4期)に対する比較(n_a=150, T=30)。
+
+| | DiscreteDP | EGM |
+|---|---|---|
+| Jacobian構築時間 | 42.6秒 | 2.5秒 |
+| ZLB遷移の収束 | **収束せず**(`converged=False`、区間探索が尽きてfallbackに落ちた) | 収束(3回の候補で発見) |
+| J_eff対角成分 | ギザギザ(t=5付近で谷、t=10以降も波打つ) | なめらかに単調減少 |
+| output gap・政策金利の経路 | 非単調に大きく振動し、t=15近辺で急落(収束していない解なので信頼できない) | なめらかに定常状態へ収束 |
+
+`dr=0.02`というDiscreteDP側の「大きい摂動幅」は、前回のn_a=150・T=30という設定では、もはや
+ノイズを均すのに十分ではなかったことがこの比較で分かる(グリッドサイズ・ホライズンの組み合わせ
+次第で必要な摂動幅が変わってしまうこと自体が、この方式の実務上の脆さを物語っている)。EGM側は
+教科書通りの微小摂動(`dr=1e-4`)のまま、ホライズンや摂動幅を調整する必要がなかった。
+
 ## アーキテクチャ(層構造)
 
 | 層 | ファイル | 役割 | 使っている既存実装 |
