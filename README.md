@@ -8,12 +8,11 @@ ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HA
 委譲し、ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
 「regime-switching guess-and-verify」で解く。
 
-## このブランチ(`egm-household`)について
+## ブランチ(`egm-household`)について(merge済み)
 
 `master`ブランチでは、家計ブロックのSequence-Space Jacobianを**補間なしの離散選択PFI**
 (`household.py`、DiscreteDP)から計算しており、微小な価格変化では消費が反応しない「階段関数」
-問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した(`master`のREADME
-「このマイルストーンで分かったこと」参照)。
+問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した。
 
 このブランチでは、**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと
 置き換えた版を実装し、同じ問題が解消するかを検証した。結論:**解消した**。
@@ -31,20 +30,6 @@ ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HA
 `transition_egm.py` / `jacobian_egm.py`。`hank_zlb.py`には`build_hank_jacobian_egm`を追加し、
 ZLBの行列ソルバー自体(`solve_hank_transition_path`)は変更していない(家計ブロックがどちらで
 作られたJacobianかを一切問わない、純粋な線形代数なので)。
-
-### 実装中に踏んだバグ(これも記録として残す)
-
-1. **借入制約点のスプライス位置バグ**: 制約が実際には効かない(高所得で、a=0でも無制約解が
-   成立する)状態に対しても、`(a_min, c=coh(a_min)-a_min)`という人工的な点を内挿配列に
-   機械的に追加していたため、本来なめらかなオイラー方程式の解の途中に不整合な値が挟まり、
-   `a=0`付近の消費が全状態で`0`に潰れるというバグを生んだ。修正: 制約が効くかどうかを
-   `a_endog`の最小値と比較して判定し、効く場合のみ直接公式`c=coh(a)-a_min`を使う。
-2. **オイラー方程式の割引率タイミングバグ**: 時間変化する価格経路のMIT shockで、
-   「t期の予算制約で使う金利(今日保有する資産の収益率)」と「オイラー方程式の割引に使う金利
-   (今日からt+1への貯蓄の収益率)」を同じ`r_path[t]`で済ませてしまい、Jacobianの対角成分
-   (所得効果、符号は正のはず)と1つ上の対角成分(代替効果、符号は負のはず)が同じ符号・
-   大きさになってしまった。定常問題(`solve_household_egm`)では両者が一致するため
-   表面化せず、時間変化する`transition_egm.py`を作って初めて発覚した。
 
 ### このブランチの実行例
 
@@ -132,10 +117,9 @@ poetry run python examples/run_hank_zlb_transition.py # ZLB遷移パス(HANK版�
   数学的に同値な合成Jacobianを入力した場合に`nk_zlb.py`の結果と浮動小数点精度で完全一致することを
   テストで検証済み(`tests/test_hank_zlb.py::test_matches_the_representative_agent_solver_for_an_equivalent_jacobian`)。
 
-## このマイルストーンで分かったこと(重要な注記)
+## 工夫
 
-HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処した。卒論の方法論セクションにそのまま
-使える内容なので詳しく書いておく。
+HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処した。
 
 1. **タイミング規約のねじれ**: `household.py`では`r_path[t]`を「tに保有している資産が生む
    当期の収益」として扱っている。このため`jacobian.J_r[t,s]`は、対角成分(s=t)が**正**(当期の
@@ -164,8 +148,7 @@ HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処
    HANK文献でよく議論される論点と、離散グリッドJacobianの実務上の脆さの両方を具体的な数値で
    確認できた、という意味で有益な副産物ではある。
 
-## 次のマイルストーン(未実装・既知の制約)
-
+## 次回以降の拡張
 1. **Fake News Algorithmへの置き換え**(効率化)
    現状の`jacobian.py`はT×T行列を「1期ずつ価格を揺らして毎回MIT shockを解き直す」brute-force法
    (2T回の有限ホライズン解)で計算している。Auclert et al. (2021)のfake news algorithmに
@@ -179,14 +162,3 @@ HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処
 4. **借入制約自体のoccasionally-binding化**
    現状`a_min`は固定の下限だが、`a_min`自体を景気等に応じて時間変化させる拡張も案Aの
    相補性(complementarity)フレームワークと接続しやすい。
-
-## 開発環境についての注意
-
-このリポジトリは `C:\Users\rinku\hank_pfi` で開発し、`G:\マイドライブ\Claude_Studio\hank_pfi` に
-ソースのみコピーしている(Poetryの仮想環境・`dist/`はコピーしない)。Google Driveの仮想ドライブは
-大量の小さいファイル書き込みに弱く、`poetry install`や`pytest`のキャッシュ生成でI/Oエラーが
-出やすいため。G:側で作業を再開する場合は、G:側のパスで改めて`poetry install`すること
-(Poetryは依存関係を`~/.cache/pypoetry`配下のローカルドライブに作るため、この問題は避けられる)。
-
-GitリポジトリもC:側(`C:\Users\rinku\hank_pfi`)にあり、G:側にはソースのコピーのみを置いている
-(`.git`はコピーしていない)。
