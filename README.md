@@ -118,11 +118,8 @@ poetry run python examples/run_hank_zlb_transition.py # ZLB遷移パス(HANK版�
   テストで検証済み(`tests/test_hank_zlb.py::test_matches_the_representative_agent_solver_for_an_equivalent_jacobian`)。
 
 ## 工夫
-<<<<<<< HEAD
-=======
 
 HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処した。
->>>>>>> 16e116ed376c10ae32b608de6a8555465557373b
 
 1. **タイミング規約のねじれ**: `household.py`では`r_path[t]`を「tに保有している資産が生む
    当期の収益」として扱っている。このため`jacobian.J_r[t,s]`は、対角成分(s=t)が**正**(当期の
@@ -151,24 +148,20 @@ HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処
    HANK文献でよく議論される論点と、離散グリッドJacobianの実務上の脆さの両方を具体的な数値で
    確認できた、という意味で有益な副産物ではある。
 
-<<<<<<< HEAD
 ## 次の拡張(未実装・既知の制約)
 
-1. GreenQEの導入：QEは異質な家計や企業に異なる効果をもたらしうる。
-   なので、それをこのモデルを軸に表現したい
-=======
-## 次回以降の拡張
-1. **Fake News Algorithmへの置き換え**(効率化)
+1. **GreenQEの導入**: QEは異質な家計や企業に異なる効果をもたらしうる。
+   なので、それをこのモデルを軸に表現したい。
+2. **Fake News Algorithmへの置き換え**(効率化)
    現状の`jacobian.py`はT×T行列を「1期ずつ価格を揺らして毎回MIT shockを解き直す」brute-force法
    (2T回の有限ホライズン解)で計算している。Auclert et al. (2021)のfake news algorithmに
    置き換えればO(T)の計算量のまま同じ行列が得られ、Tを数百まで伸ばせるようになる。
-2. **キャリブレーションの精緻化**
+3. **キャリブレーションの精緻化**
    `NKParams`のkappa/phi_pi/phi_yを、代表的家計ではなくHANKのJ_effと整合する形で
    再キャリブレーションする(文献の標準的なHANKモデルのように)。
-3. **グリッド精度とJacobianの精度のトレードオフ解消**
+4. **グリッド精度とJacobianの精度のトレードオフ解消**
    `_quadratic_refine_a`のバイアスをさらに減らす(例: 3点でなく5点の高次補間、またはEGMへの
    部分的な移行)。これができれば有限ホライズンの境界効果も緩和できる見込み。
-4. **借入制約自体のoccasionally-binding化**
+5. **借入制約自体のoccasionally-binding化**
    現状`a_min`は固定の下限だが、`a_min`自体を景気等に応じて時間変化させる拡張も案Aの
    相補性(complementarity)フレームワークと接続しやすい。
->>>>>>> 16e116ed376c10ae32b608de6a8555465557373b
