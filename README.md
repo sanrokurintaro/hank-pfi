@@ -3,7 +3,7 @@
 ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HANK モデルを、
 **Policy Function Iteration(Howard改善)+ 大域グリッド**で解くためのパッケージ。
 
-設計方針は「案B: QuantEcon `DiscreteDP` 中核型」。家計の動的計画問題は自前でVFI/PFIループを
+設計方針は「 QuantEcon `DiscreteDP` 中核型」。家計の動的計画問題は自前でVFI/PFIループを
 書かず、QuantEcon.py の `DiscreteDP.solve(method='policy_iteration')`(= Howard改善そのもの)に
 委譲し、ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
 「regime-switching guess-and-verify」で解く。
@@ -71,10 +71,7 @@ poetry run python examples/run_hank_zlb_transition.py # ZLB遷移パス(HANK版�
   数学的に同値な合成Jacobianを入力した場合に`nk_zlb.py`の結果と浮動小数点精度で完全一致することを
   テストで検証済み(`tests/test_hank_zlb.py::test_matches_the_representative_agent_solver_for_an_equivalent_jacobian`)。
 
-## このマイルストーンで分かったこと(重要な注記)
-
-HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処した。卒論の方法論セクションにそのまま
-使える内容なので詳しく書いておく。
+## 工夫
 
 1. **タイミング規約のねじれ**: `household.py`では`r_path[t]`を「tに保有している資産が生む
    当期の収益」として扱っている。このため`jacobian.J_r[t,s]`は、対角成分(s=t)が**正**(当期の
@@ -103,29 +100,7 @@ HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処
    HANK文献でよく議論される論点と、離散グリッドJacobianの実務上の脆さの両方を具体的な数値で
    確認できた、という意味で有益な副産物ではある。
 
-## 次のマイルストーン(未実装・既知の制約)
+## 次の拡張(未実装・既知の制約)
 
-1. **Fake News Algorithmへの置き換え**(効率化)
-   現状の`jacobian.py`はT×T行列を「1期ずつ価格を揺らして毎回MIT shockを解き直す」brute-force法
-   (2T回の有限ホライズン解)で計算している。Auclert et al. (2021)のfake news algorithmに
-   置き換えればO(T)の計算量のまま同じ行列が得られ、Tを数百まで伸ばせるようになる。
-2. **キャリブレーションの精緻化**
-   `NKParams`のkappa/phi_pi/phi_yを、代表的家計ではなくHANKのJ_effと整合する形で
-   再キャリブレーションする(文献の標準的なHANKモデルのように)。
-3. **グリッド精度とJacobianの精度のトレードオフ解消**
-   `_quadratic_refine_a`のバイアスをさらに減らす(例: 3点でなく5点の高次補間、またはEGMへの
-   部分的な移行)。これができれば有限ホライズンの境界効果も緩和できる見込み。
-4. **借入制約自体のoccasionally-binding化**
-   現状`a_min`は固定の下限だが、`a_min`自体を景気等に応じて時間変化させる拡張も案Aの
-   相補性(complementarity)フレームワークと接続しやすい。
-
-## 開発環境についての注意
-
-このリポジトリは `C:\Users\rinku\hank_pfi` で開発し、`G:\マイドライブ\Claude_Studio\hank_pfi` に
-ソースのみコピーしている(Poetryの仮想環境・`dist/`はコピーしない)。Google Driveの仮想ドライブは
-大量の小さいファイル書き込みに弱く、`poetry install`や`pytest`のキャッシュ生成でI/Oエラーが
-出やすいため。G:側で作業を再開する場合は、G:側のパスで改めて`poetry install`すること
-(Poetryは依存関係を`~/.cache/pypoetry`配下のローカルドライブに作るため、この問題は避けられる)。
-
-GitリポジトリもC:側(`C:\Users\rinku\hank_pfi`)にあり、G:側にはソースのコピーのみを置いている
-(`.git`はコピーしていない)。
+1. GreenQEの導入：QEは異質な家計や企業に異なる効果をもたらしうる。
+   なので、それをこのモデルを軸に表現したい
