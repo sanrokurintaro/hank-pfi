@@ -33,9 +33,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .household import HouseholdSolution
-from .household_egm import EGMSolution
 from .jacobian import HouseholdJacobians, household_jacobians
-from .jacobian_egm import household_jacobians_egm
 from .params import HouseholdParams, NKParams
 
 
@@ -106,29 +104,6 @@ def build_hank_jacobian(
     ``_shift_jacobian``) and combine them into J_eff via the w=Y closure.
     """
     J = household_jacobians(
-        hh_p, steady_household, dist0, r_ss, w_ss, C_ss, T + 1, dr=dr, dlogw=dlogw
-    )
-    return _effective_jacobian(J)
-
-
-def build_hank_jacobian_egm(
-    hh_p: HouseholdParams,
-    steady_household: EGMSolution,
-    dist0: np.ndarray,
-    r_ss: float,
-    w_ss: float,
-    C_ss: float,
-    T: int,
-    dr: float = 1e-4,
-    dlogw: float = 1e-4,
-) -> np.ndarray:
-    """EGM counterpart of ``build_hank_jacobian``. The default step sizes
-    are three orders of magnitude smaller than the DiscreteDP version's
-    (dr=0.02, dlogw=0.1) -- EGM's policy function is smooth, so it doesn't
-    need large steps to average out grid-discretization noise (see
-    ``jacobian_egm.py``'s module docstring).
-    """
-    J = household_jacobians_egm(
         hh_p, steady_household, dist0, r_ss, w_ss, C_ss, T + 1, dr=dr, dlogw=dlogw
     )
     return _effective_jacobian(J)

@@ -8,14 +8,18 @@ ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HA
 委譲し、ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
 「regime-switching guess-and-verify」で解く。
 
-## ブランチ(`egm-household`)について(merge済み)
+## 離散選択(PFI/DiscreteDP) vs EGM
 
-`master`ブランチでは、家計ブロックのSequence-Space Jacobianを**補間なしの離散選択PFI**
-(`household.py`、DiscreteDP)から計算しており、微小な価格変化では消費が反応しない「階段関数」
-問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した。
+`master`ブランチ(このブランチ)は、家計ブロックのSequence-Space Jacobianを**補間なしの
+離散選択PFI**(`household.py`、DiscreteDP)から計算している。これには、微小な価格変化では
+消費が反応しない「階段関数」問題や、賃金Jacobianの符号が反転するほどのノイズが発生する
+という既知の限界がある(詳細は後述の「工夫」節)。
 
-このブランチでは、**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと
-置き換えた版を実装し、同じ問題が解消するかを検証した。結論:**解消した**。
+この限界が**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと置き換えると
+解消するかどうかを、別ブランチ [`egm-household`](https://github.com/sanrokurintaro/hank-pfi/tree/egm-household)
+で検証した(結論:解消する)。そのブランチには`household_egm.py` / `distribution_egm.py` /
+`steady_state_egm.py` / `transition_egm.py` / `jacobian_egm.py`と、対応するテスト・実行例が
+ある。比較は以下の通り(n_a=150, T=30、自然利子率に-0.02・持続期間4期のショック):
 
 | | `master`(DiscreteDP) | `egm-household`(EGM) |
 |---|---|---|
@@ -25,22 +29,11 @@ ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HA
 | Jacobian | `jacobian.py` | `jacobian_egm.py` |
 | Jacobian計算に必要な摂動幅 | `dr=0.02, dlogw=0.1`(大きくしないと符号が壊れる) | `dr=dlogw=1e-4`(教科書通りの微小摂動で十分) |
 | ノーショック経路のレベルバイアス | n_a=150で2〜4% | 数値誤差程度(事実上ゼロ) |
+| Jacobian構築時間 | 42.6秒 | 2.5秒 |
+| ZLB遷移の収束 | **収束せず**(`converged=False`、区間探索が尽きてfallbackに落ちた) | 収束(3回の候補で発見) |
 
-新しいファイルは`household_egm.py` / `distribution_egm.py` / `steady_state_egm.py` /
-`transition_egm.py` / `jacobian_egm.py`。`hank_zlb.py`には`build_hank_jacobian_egm`を追加し、
-ZLBの行列ソルバー自体(`solve_hank_transition_path`)は変更していない(家計ブロックがどちらで
-作られたJacobianかを一切問わない、純粋な線形代数なので)。
-
-### このブランチの実行例
-
-```bash
-poetry run pytest tests/test_egm.py -v
-poetry run python examples/run_hank_zlb_transition_egm.py
-```
-
-![EGM vs DiscreteDP](examples/hank_egm_vs_discretedp.png)
-
-同じショック(自然利子率に-0.02、持続期間4期)に対する比較(n_a=150, T=30)。
+ZLBの行列ソルバー自体(`hank_zlb.py`の`solve_hank_transition_path`)はどちらの家計ブロックが
+作ったJacobianかを一切問わない純粋な線形代数なので、変更していない。
 
 | | DiscreteDP | EGM |
 |---|---|---|
