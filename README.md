@@ -48,6 +48,7 @@ ZLBの行列ソルバー自体(`hank_zlb.py`の`solve_hank_transition_path`)は�
 教科書通りの微小摂動(`dr=1e-4`)のまま、ホライズンや摂動幅を調整する必要がなかった。
 
 ## 階層図
+```text
 hank-pfi/
 ├── LICENSE
 ├── README.md
@@ -82,6 +83,7 @@ hank-pfi/
     ├── aiyagari_steady_state.png
     ├── zlb_transition.png
     └── hank_vs_rank_zlb.png
+```
 
 ## アーキテクチャ(層構造)
 
