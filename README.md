@@ -47,6 +47,26 @@ ZLBの行列ソルバー自体(`hank_zlb.py`の`solve_hank_transition_path`)は�
 次第で必要な摂動幅が変わってしまうこと自体が、この方式の実務上の脆さを物語っている)。EGM側は
 教科書通りの微小摂動(`dr=1e-4`)のまま、ホライズンや摂動幅を調整する必要がなかった。
 
+## 階層図
+hank_pfi/
+|
+|-- ① grids.py                  資産grid・所得過程の離散化
+|
+|-- ② household.py              家計ソルバー(PFI, DiscreteDP)
+    |
+    |-- ③ distribution.py       定常分布 Φ(a,e)
+    |-- ④ aggregate.py          集計 K, C, L
+        |
+        |-- ⑤ steady_state.py   Aiyagari定常均衡(r*, w*)
+            |
+            |-- ⑥ nk_zlb.py       NK+ZLBブロック(代表的家計・基準、⑨で置換される)
+            |
+            |-- ⑦ transition.py   MIT shock遷移
+                |
+                |-- ⑧ jacobian.py        Sequence-Space Jacobian
+                    |
+                    |-- ⑨ hank_zlb.py    HANK化ZLB遷移(⑥のsigmaをJ_effに置換)
+
 ## アーキテクチャ(層構造)
 
 | 層 | ファイル | 役割 | 使っている既存実装 |
