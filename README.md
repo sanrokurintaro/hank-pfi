@@ -8,6 +8,52 @@ ZLB(ゼロ金利制約)のような occasionally-binding constraint を含む HA
 委譲し、ZLBの遷移パスは Guerrieri & Iacoviello (2015) の OccBin と同じ発想の
 「regime-switching guess-and-verify」で解く。
 
+## ブランチ(`egm-household`)について(merge済み)
+
+`master`ブランチでは、家計ブロックのSequence-Space Jacobianを**補間なしの離散選択PFI**
+(`household.py`、DiscreteDP)から計算しており、微小な価格変化では消費が反応しない「階段関数」
+問題や、賃金Jacobianの符号が反転するほどのノイズが発生することを確認した。
+
+このブランチでは、**EGM(Endogenous Grid Method, Carroll 2006)**で家計ブロックを丸ごと
+置き換えた版を実装し、同じ問題が解消するかを検証した。結論:**解消した**。
+
+| | `master`(DiscreteDP) | `egm-household`(EGM) |
+|---|---|---|
+| 家計ソルバー | `household.py`(離散選択PFI) | `household_egm.py`(EGM time iteration) |
+| 分布計算 | `distribution.py`(厳密な離散遷移) | `distribution_egm.py`(lottery法、Young 2010) |
+| MIT shock遷移 | `transition.py` | `transition_egm.py` |
+| Jacobian | `jacobian.py` | `jacobian_egm.py` |
+| Jacobian計算に必要な摂動幅 | `dr=0.02, dlogw=0.1`(大きくしないと符号が壊れる) | `dr=dlogw=1e-4`(教科書通りの微小摂動で十分) |
+| ノーショック経路のレベルバイアス | n_a=150で2〜4% | 数値誤差程度(事実上ゼロ) |
+
+新しいファイルは`household_egm.py` / `distribution_egm.py` / `steady_state_egm.py` /
+`transition_egm.py` / `jacobian_egm.py`。`hank_zlb.py`には`build_hank_jacobian_egm`を追加し、
+ZLBの行列ソルバー自体(`solve_hank_transition_path`)は変更していない(家計ブロックがどちらで
+作られたJacobianかを一切問わない、純粋な線形代数なので)。
+
+### このブランチの実行例
+
+```bash
+poetry run pytest tests/test_egm.py -v
+poetry run python examples/run_hank_zlb_transition_egm.py
+```
+
+![EGM vs DiscreteDP](examples/hank_egm_vs_discretedp.png)
+
+同じショック(自然利子率に-0.02、持続期間4期)に対する比較(n_a=150, T=30)。
+
+| | DiscreteDP | EGM |
+|---|---|---|
+| Jacobian構築時間 | 42.6秒 | 2.5秒 |
+| ZLB遷移の収束 | **収束せず**(`converged=False`、区間探索が尽きてfallbackに落ちた) | 収束(3回の候補で発見) |
+| J_eff対角成分 | ギザギザ(t=5付近で谷、t=10以降も波打つ) | なめらかに単調減少 |
+| output gap・政策金利の経路 | 非単調に大きく振動し、t=15近辺で急落(収束していない解なので信頼できない) | なめらかに定常状態へ収束 |
+
+`dr=0.02`というDiscreteDP側の「大きい摂動幅」は、前回のn_a=150・T=30という設定では、もはや
+ノイズを均すのに十分ではなかったことがこの比較で分かる(グリッドサイズ・ホライズンの組み合わせ
+次第で必要な摂動幅が変わってしまうこと自体が、この方式の実務上の脆さを物語っている)。EGM側は
+教科書通りの微小摂動(`dr=1e-4`)のまま、ホライズンや摂動幅を調整する必要がなかった。
+
 ## アーキテクチャ(層構造)
 
 | 層 | ファイル | 役割 | 使っている既存実装 |
@@ -72,6 +118,11 @@ poetry run python examples/run_hank_zlb_transition.py # ZLB遷移パス(HANK版�
   テストで検証済み(`tests/test_hank_zlb.py::test_matches_the_representative_agent_solver_for_an_equivalent_jacobian`)。
 
 ## 工夫
+<<<<<<< HEAD
+=======
+
+HANK化の過程で3つの非自明な問題にぶつかり、それぞれ対処した。
+>>>>>>> 16e116ed376c10ae32b608de6a8555465557373b
 
 1. **タイミング規約のねじれ**: `household.py`では`r_path[t]`を「tに保有している資産が生む
    当期の収益」として扱っている。このため`jacobian.J_r[t,s]`は、対角成分(s=t)が**正**(当期の
@@ -100,7 +151,24 @@ poetry run python examples/run_hank_zlb_transition.py # ZLB遷移パス(HANK版�
    HANK文献でよく議論される論点と、離散グリッドJacobianの実務上の脆さの両方を具体的な数値で
    確認できた、という意味で有益な副産物ではある。
 
+<<<<<<< HEAD
 ## 次の拡張(未実装・既知の制約)
 
 1. GreenQEの導入：QEは異質な家計や企業に異なる効果をもたらしうる。
    なので、それをこのモデルを軸に表現したい
+=======
+## 次回以降の拡張
+1. **Fake News Algorithmへの置き換え**(効率化)
+   現状の`jacobian.py`はT×T行列を「1期ずつ価格を揺らして毎回MIT shockを解き直す」brute-force法
+   (2T回の有限ホライズン解)で計算している。Auclert et al. (2021)のfake news algorithmに
+   置き換えればO(T)の計算量のまま同じ行列が得られ、Tを数百まで伸ばせるようになる。
+2. **キャリブレーションの精緻化**
+   `NKParams`のkappa/phi_pi/phi_yを、代表的家計ではなくHANKのJ_effと整合する形で
+   再キャリブレーションする(文献の標準的なHANKモデルのように)。
+3. **グリッド精度とJacobianの精度のトレードオフ解消**
+   `_quadratic_refine_a`のバイアスをさらに減らす(例: 3点でなく5点の高次補間、またはEGMへの
+   部分的な移行)。これができれば有限ホライズンの境界効果も緩和できる見込み。
+4. **借入制約自体のoccasionally-binding化**
+   現状`a_min`は固定の下限だが、`a_min`自体を景気等に応じて時間変化させる拡張も案Aの
+   相補性(complementarity)フレームワークと接続しやすい。
+>>>>>>> 16e116ed376c10ae32b608de6a8555465557373b
